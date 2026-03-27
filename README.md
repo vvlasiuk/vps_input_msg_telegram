@@ -13,7 +13,7 @@
 - Файли зберігаються в:
   - `FILES_BASE_DIR/system/source_id/chat_id`
   - приклад фактичного шляху реалізації:
-    - `storage/telegram/my_telegram_bot/-1001234567890/2026.03.27 08.40.00_111222333.jpg`
+    - `storage/telegram/my_telegram_bot/-1001234567890/20260327 084000_111222333.jpg`
 - Формат імені файлу:
   - `YYYY.MM.DD HH.MM.SS_message_id[optional_index].ext`
 - Реакція `👀` ставиться лише після успішної публікації в RabbitMQ.

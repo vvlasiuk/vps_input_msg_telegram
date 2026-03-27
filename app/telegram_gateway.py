@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 import logging
@@ -29,6 +29,7 @@ class TelegramGateway:
         self._token = settings.telegram_bot_token
         self._api_base = f"https://api.telegram.org/bot{self._token}"
         self._file_base = f"https://api.telegram.org/file/bot{self._token}"
+        self._message_timezone = timezone(timedelta(hours=self._settings.telegram_timezone_offset_hours))
 
     def get_updates(self, offset: int | None) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {
@@ -71,7 +72,7 @@ class TelegramGateway:
             return None
 
         sender = message.get("from", {})
-        timestamp = datetime.fromtimestamp(message.get("date", int(time.time())), tz=timezone.utc)
+        timestamp = datetime.fromtimestamp(message.get("date", int(time.time())), tz=self._message_timezone)
 
         return {
             "chat_id": chat_id,
@@ -79,8 +80,8 @@ class TelegramGateway:
             "username": sender.get("username") or "",
             "message_id": str(message.get("message_id", "")),
             "message_id_int": int(message.get("message_id", 0)),
-            "timestamp_iso": timestamp.isoformat().replace("+00:00", "Z"),
-            "timestamp_file": timestamp.strftime("%Y.%m.%d %H.%M.%S"),
+            "timestamp_iso": timestamp.isoformat(),
+            "timestamp_file": timestamp.strftime("%Y-%m-%d_%H-%M-%S"),
             "text": message.get("text") or message.get("caption") or "",
             "raw_message": message,
         }

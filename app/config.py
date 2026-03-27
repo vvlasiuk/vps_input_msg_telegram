@@ -17,6 +17,7 @@ class Settings:
     telegram_poll_timeout_seconds: int
     telegram_poll_interval_seconds: float
     telegram_offset_file: Path
+    telegram_timezone_offset_hours: float
 
     rabbitmq_host: str
     rabbitmq_port: int
@@ -80,6 +81,7 @@ def load_settings(args: argparse.Namespace) -> Settings:
 
     files_base_dir = Path(os.getenv("FILES_BASE_DIR", str(project_root / "storage"))).expanduser().resolve()
     offset_file = Path(os.getenv("TELEGRAM_OFFSET_FILE", str(project_root / "var" / "offset.txt"))).expanduser().resolve()
+    telegram_timezone_offset_hours = _to_float(os.getenv("TELEGRAM_TIMEZONE_OFFSET_HOURS", "2"), 2.0)
 
     log_dir = Path(os.getenv("LOG_DIR", str(project_root / "logs"))).expanduser().resolve()
     log_file_name = os.getenv("LOG_FILE_NAME", "service.log").strip() or "service.log"
@@ -96,6 +98,7 @@ def load_settings(args: argparse.Namespace) -> Settings:
         telegram_poll_timeout_seconds=_to_int(os.getenv("TELEGRAM_POLL_TIMEOUT_SECONDS", "30"), 30),
         telegram_poll_interval_seconds=_to_float(os.getenv("TELEGRAM_POLL_INTERVAL_SECONDS", "1.0"), 1.0),
         telegram_offset_file=offset_file,
+        telegram_timezone_offset_hours=telegram_timezone_offset_hours,
         rabbitmq_host=os.getenv("RABBITMQ_HOST", "localhost"),
         rabbitmq_port=_to_int(os.getenv("RABBITMQ_PORT", "5672"), 5672),
         rabbitmq_user=os.getenv("RABBITMQ_USER", "guest"),
