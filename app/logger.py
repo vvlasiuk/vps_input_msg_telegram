@@ -12,6 +12,9 @@ def configure_logging(settings: Settings) -> None:
     logger = logging.getLogger()
     logger.setLevel(getattr(logging, settings.log_level, logging.ERROR))
 
+    logging.getLogger("pika").setLevel(logging.CRITICAL)
+
+
     for handler in logger.handlers[:]:
         logger.removeHandler(handler)
 

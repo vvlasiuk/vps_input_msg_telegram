@@ -50,6 +50,25 @@ class RabbitPublisher:
 
         if self._connection.is_closed or self._channel.is_closed:
             self.connect()
+            return
+
+        try:
+            # Активний probe до брокера: якщо конект stale, тут впаде
+            self._channel.queue_declare(
+                queue=self._settings.rabbitmq_queue,
+                passive=True,
+            )
+        except pika.exceptions.AMQPError:
+            try:
+                if self._connection and self._connection.is_open:
+                    self._connection.close()
+            except Exception:
+                logger.exception("Failed to close stale RabbitMQ connection")
+            finally:
+                self._connection = None
+                self._channel = None
+
+            self.connect()
 
     def publish(self, payload: dict[str, Any]) -> None:
         self.ensure_connection()
