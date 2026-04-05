@@ -6,10 +6,10 @@
 
 - Вхід: оновлення Telegram Bot API (`getUpdates`) з групи/чату.
 - Транспортний вихід: публікація в RabbitMQ exchange.
-- Черга створюється та прив'язується автоматично:
-  - exchange: `input_messages_exchange`
-  - queue: `input.messages.queue` (налаштовується)
-  - routing key: `input.messages`
+- Топологія RabbitMQ НЕ створюється сервісом. Вона має існувати заздалегідь:
+  - exchange: `input_messages_exchange` (налаштовується)
+  - routing key: `input.messages` (налаштовується)
+  - queue та binding налаштовуються на стороні RabbitMQ.
 - Файли зберігаються в:
   - `FILES_BASE_DIR/system/source_id/chat_id`
   - приклад фактичного шляху реалізації:
@@ -52,7 +52,8 @@
 1. Встановіть залежності:
    - `pip install -r requirements.txt`
 2. Створіть env-файл (за потреби поза проєктом) на основі `.env.example`.
-3. Переконайтесь, що RabbitMQ доступний; сервіс сам створить exchange і queue та прив'яже чергу за routing key.
+3. Переконайтесь, що RabbitMQ доступний, exchange існує, і налаштований binding для потрібного routing key.
+  Сервіс лише публікує повідомлення в exchange.
 4. Запустіть сервіс:
    - env-файл за замовчуванням з кореня проєкту:
      - `python main.py`

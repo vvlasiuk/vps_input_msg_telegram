@@ -26,7 +26,6 @@ class Settings:
     rabbitmq_vhost: str
     rabbitmq_exchange: str
     rabbitmq_exchange_type: str
-    rabbitmq_queue: str
     rabbitmq_routing_key: str
     rabbitmq_heartbeat_seconds: int
     rabbitmq_blocked_connection_timeout_seconds: int
@@ -106,7 +105,6 @@ def load_settings(args: argparse.Namespace) -> Settings:
         rabbitmq_vhost=os.getenv("RABBITMQ_VHOST", "input_message"),
         rabbitmq_exchange=os.getenv("RABBITMQ_EXCHANGE", "input_messages_exchange"),
         rabbitmq_exchange_type=os.getenv("RABBITMQ_EXCHANGE_TYPE", "direct"),
-        rabbitmq_queue=os.getenv("RABBITMQ_QUEUE", "input.messages.queue"),
         rabbitmq_routing_key=os.getenv("RABBITMQ_ROUTING_KEY", "input.messages"),
         rabbitmq_heartbeat_seconds=_to_int(os.getenv("RABBITMQ_HEARTBEAT_SECONDS", "60"), 60),
         rabbitmq_blocked_connection_timeout_seconds=_to_int(

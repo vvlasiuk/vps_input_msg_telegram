@@ -34,7 +34,14 @@ class TelegramToRabbitService:
                     if update_id <= 0:
                         continue
 
-                    self._handle_update(update)
+                    processed = self._handle_update(update)
+                    if not processed:
+                        logger.warning(
+                            "Update was not processed successfully, keeping offset unchanged for retry",
+                            extra={"update_id": update_id},
+                        )
+                        break
+
                     offset = update_id + 1
                     self._write_offset(offset)
 
@@ -49,17 +56,17 @@ class TelegramToRabbitService:
 
         self._publisher.close()
 
-    def _handle_update(self, update: dict[str, Any]) -> None:
+    def _handle_update(self, update: dict[str, Any]) -> bool:
         message_meta = self._telegram.extract_message_data(update)
         if not message_meta:
-            return
+            return True
 
         files = []
         try:
             files = self._telegram.download_attachments(message_meta)
         except Exception:
             logger.exception("Failed to download Telegram attachment")
-            return
+            files = []
 
         payload = self._build_payload(message_meta, files)
 
@@ -67,7 +74,7 @@ class TelegramToRabbitService:
             self._publisher.publish(payload)
         except Exception:
             logger.exception("Failed to publish message to RabbitMQ")
-            return
+            return False
 
         try:
             reacted = self._telegram.set_message_reaction_eyes(
@@ -78,6 +85,8 @@ class TelegramToRabbitService:
                 logger.error("Telegram returned not-ok for setMessageReaction")
         except Exception:
             logger.exception("Failed to set reaction")
+
+        return True
 
     def _build_payload(self, message_meta: dict[str, Any], files: list[Any]) -> dict[str, Any]:
         return {
