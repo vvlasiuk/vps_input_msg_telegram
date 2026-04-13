@@ -11,6 +11,8 @@ import time
 
 import requests
 
+import json
+
 from app.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -30,6 +32,28 @@ class TelegramGateway:
         self._api_base = f"https://api.telegram.org/bot{self._token}"
         self._file_base = f"https://api.telegram.org/file/bot{self._token}"
         self._message_timezone = timezone(timedelta(hours=self._settings.telegram_timezone_offset_hours))
+
+    def set_bot_commands_from_file(self, commands_path: str = "commands.json") -> None:
+        """
+        Встановлює команди для Telegram-бота з файлу, якщо файл існує.
+        """
+        import os
+        if not os.path.exists(commands_path):
+            logger.info(f"Файл команд {commands_path} не знайдено, команди не встановлюються.")
+            return
+        try:
+            with open(commands_path, encoding="utf-8") as f:
+                commands = json.load(f)
+            payload = {"commands": commands}
+            response = requests.post(f"{self._api_base}/setMyCommands", json=payload, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            if not data.get("ok"):
+                logger.warning(f"Не вдалося встановити команди: {data}")
+            else:
+                logger.info("Команди Telegram-бота успішно встановлено.")
+        except Exception as exc:
+            logger.exception(f"Помилка при встановленні команд Telegram-бота: {exc}")
 
     def get_updates(self, offset: int | None) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {

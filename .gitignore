@@ -18,6 +18,9 @@ logs/
 storage/
 var/
 
+# Telegram bot commands config
+commands.json
+
 # Tooling
 .pytest_cache/
 .mypy_cache/

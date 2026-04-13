@@ -60,6 +60,22 @@
    - власний шлях до env-файлу:
      - `python main.py --env-file D:\configs\telegram_input.env`
 
+## Команди Telegram-бота
+
+- Для налаштування команд меню бота створіть файл `commands.json` у корені проєкту (див. приклад у `commands.example.json`).
+- Файл `commands.json` не включається у git, зразок — у `commands.example.json`.
+- Якщо файл існує, при запуску сервісу команди автоматично встановлюються через Telegram API.
+- Якщо файл відсутній — команди не змінюються.
+
+**Приклад вмісту `commands.json`:**
+
+```
+[
+  {"command": "start", "description": "Почати роботу"},
+  {"command": "help", "description": "Допомога"}
+]
+```
+
 ## Логування
 
 - Файлове логування використовує циклічну ротацію (`RotatingFileHandler`).
