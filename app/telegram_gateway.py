@@ -14,6 +14,7 @@ import requests
 import json
 
 from app.config import Settings
+from app.keyboard_loader import load_keyboard_from_file
 
 logger = logging.getLogger(__name__)
 
@@ -206,3 +207,21 @@ class TelegramGateway:
             return extension
         guessed = mimetypes.guess_extension(mime_type)
         return guessed or ".bin"
+
+    def load_keyboard_markup(self, keyboard_path: str = "keyboard.json"):
+        """
+        Завантажує меню для ReplyKeyboardMarkup з JSON-файлу, якщо файл існує.
+        Повертає ReplyKeyboardMarkup або None.
+        """
+        import os
+        try:
+            if not os.path.exists(keyboard_path):
+                logger.info(f"Файл меню {keyboard_path} не знайдено, меню не використовується.")
+                return None
+            markup = load_keyboard_from_file(keyboard_path)
+            if markup:
+                logger.info(f"Меню Telegram-бота успішно завантажено з {keyboard_path}.")
+            return markup
+        except Exception as exc:
+            logger.exception(f"Помилка при завантаженні меню Telegram-бота: {exc}")
+            return None

@@ -1,3 +1,5 @@
+# Telegram bot keyboard config
+keyboard.json
 # Python cache and bytecode
 __pycache__/
 *.py[cod]
