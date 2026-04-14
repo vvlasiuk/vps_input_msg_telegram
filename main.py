@@ -22,9 +22,7 @@ def main() -> int:
 
     logger.info("Configuration loaded successfully")
 
-    # Встановлення команд Telegram-бота при старті, якщо файл існує
     from app.telegram_gateway import TelegramGateway
-    TelegramGateway(settings).set_bot_commands_from_file()
 
     service = TelegramToRabbitService(settings)
     service.run_forever()
