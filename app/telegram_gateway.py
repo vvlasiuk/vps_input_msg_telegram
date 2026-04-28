@@ -76,7 +76,7 @@ class TelegramGateway:
         payload = {
             "chat_id": chat_id,
             "message_id": message_id,
-            "reaction": [{"type": "emoji", "emoji": "👀"}],
+            "reaction": [{"type": "emoji", "emoji": "👀"}], 
             "is_big": False,
         }
         response = requests.post(f"{self._api_base}/setMessageReaction", json=payload, timeout=30)
