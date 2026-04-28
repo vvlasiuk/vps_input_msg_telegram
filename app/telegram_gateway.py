@@ -59,7 +59,7 @@ class TelegramGateway:
     def get_updates(self, offset: int | None) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {
             "timeout": self._settings.telegram_poll_timeout_seconds,
-            "allowed_updates": ["message"],
+            "allowed_updates": ["message", "web_app_data"],
         }
         if offset is not None:
             payload["offset"] = offset
@@ -69,6 +69,7 @@ class TelegramGateway:
         data = response.json()
         if not data.get("ok"):
             raise RuntimeError(f"Telegram API getUpdates failed: {data}")
+        # print(f"Received updates: {json.dumps(data, ensure_ascii=False)}")
         return data.get("result", [])
 
     def set_message_reaction_eyes(self, chat_id: str, message_id: int) -> bool:
@@ -98,6 +99,12 @@ class TelegramGateway:
 
         sender = message.get("from", {})
         timestamp = datetime.fromtimestamp(message.get("date", int(time.time())), tz=self._message_timezone)
+        web_app_data = None
+        if "web_app_data" in message:
+            try:
+                web_app_data = json.loads(message["web_app_data"]["data"])
+            except Exception as exc:
+                logger.warning(f"Invalid web_app_data: {exc}")
 
         return {
             "chat_id": chat_id,
@@ -108,6 +115,7 @@ class TelegramGateway:
             "timestamp_iso": timestamp.isoformat(),
             "timestamp_file": timestamp.strftime("%Y-%m-%d_%H-%M-%S"),
             "text": message.get("text") or message.get("caption") or "",
+            "web_app_data": web_app_data,
             "raw_message": message,
         }
 
