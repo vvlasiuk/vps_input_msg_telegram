@@ -59,7 +59,7 @@ class TelegramGateway:
     def get_updates(self, offset: int | None) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {
             "timeout": self._settings.telegram_poll_timeout_seconds,
-            "allowed_updates": ["message"],
+            "allowed_updates": ["message", "web_app_data"],
         }
         if offset is not None:
             payload["offset"] = offset
@@ -69,6 +69,7 @@ class TelegramGateway:
         data = response.json()
         if not data.get("ok"):
             raise RuntimeError(f"Telegram API getUpdates failed: {data}")
+        # print(f"Received updates: {json.dumps(data, ensure_ascii=False)}")
         return data.get("result", [])
 
     def set_message_reaction_eyes(self, chat_id: str, message_id: int) -> bool:

@@ -89,6 +89,12 @@ class TelegramToRabbitService:
         return True
 
     def _build_payload(self, message_meta: dict[str, Any], files: list[Any]) -> dict[str, Any]:
+        web_app_data = message_meta.get("web_app_data")
+        command = None
+        if web_app_data:
+            if isinstance(web_app_data, dict):
+                command = web_app_data
+
         return {
             "source": {
                 "system": "telegram",
