@@ -1,1 +1,1 @@
-main.py --env-file .env
+.venv\Scripts\python.exe main.py --env-file .env
