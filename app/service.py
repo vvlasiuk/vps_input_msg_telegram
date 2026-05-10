@@ -99,6 +99,10 @@ class TelegramToRabbitService:
                 "message_id": message_meta["message_id"],
                 "timestamp": message_meta["timestamp_iso"],
             },
+            
+            "command_name": message_meta.get("command_name", ""),
+            "command_params": message_meta.get("command_params", {}),
+            
             "content": {
                 "text": message_meta["text"],
                 "language": self._settings.default_language,

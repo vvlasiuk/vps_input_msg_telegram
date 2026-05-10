@@ -98,7 +98,9 @@ class TelegramGateway:
 
         sender = message.get("from", {})
         timestamp = datetime.fromtimestamp(message.get("date", int(time.time())), tz=self._message_timezone)
-
+        command_name, command_params = self._extract_command_from_web_app_data(
+            message.get("web_app_data"),
+        )
         return {
             "chat_id": chat_id,
             "user_id": str(sender.get("id", "")),
@@ -108,6 +110,8 @@ class TelegramGateway:
             "timestamp_iso": timestamp.isoformat(),
             "timestamp_file": timestamp.strftime("%Y-%m-%d_%H-%M-%S"),
             "text": message.get("text") or message.get("caption") or "",
+            "command_name": command_name,
+            "command_params": command_params,
             "raw_message": message,
         }
 
@@ -225,3 +229,45 @@ class TelegramGateway:
         except Exception as exc:
             logger.exception(f"Помилка при завантаженні меню Telegram-бота: {exc}")
             return None
+
+    @staticmethod
+    def _extract_command_from_web_app_data(web_app_data: Any) -> tuple[str | None, dict[str, Any]]:
+        if not isinstance(web_app_data, dict):
+            return None, {}
+
+        raw_data = web_app_data.get("data")
+        if not raw_data:
+            return None, {}
+
+        if not isinstance(raw_data, str):
+            return None, {}
+
+        try:
+            parsed = json.loads(raw_data)
+        except (TypeError, ValueError):
+            return None, {}
+
+        if not isinstance(parsed, dict):
+            return None, {}
+
+        command_name_raw = (
+            parsed.get("command_name")
+            or parsed.get("name")
+            or parsed.get("command")
+        )
+        command_name = str(command_name_raw).strip() if command_name_raw else None
+
+        params_value = parsed.get("command_params", parsed.get("params", {}))
+
+        if isinstance(params_value, dict):
+            command_params = params_value
+        elif params_value is None or params_value == "":
+            command_params = {}
+        elif isinstance(params_value, str):
+            try:
+                decoded = json.loads(params_value)
+                command_params = decoded if isinstance(decoded, dict) else {"value": decoded}
+            except (TypeError, ValueError):
+                command_params = {"value": params_value}
+
+        return command_name, command_params
