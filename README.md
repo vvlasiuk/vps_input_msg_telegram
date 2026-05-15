@@ -5,6 +5,8 @@
 ## Основна поведінка
 
 - Вхід: оновлення Telegram Bot API (`getUpdates`) з групи/чату.
+  - **message** — текстові повідомлення та вкладення (фото, документи, відео, аудіо).
+  - **callback_query** — натиски на inline/reply кнопки в повідомленнях.
 - Транспортний вихід: публікація в RabbitMQ exchange.
 - Топологія RabbitMQ НЕ створюється сервісом. Вона має існувати заздалегідь:
   - exchange: `input_messages_exchange` (налаштовується)
@@ -16,11 +18,14 @@
     - `storage/telegram/my_telegram_bot/-1001234567890/20260327 084000_111222333.jpg`
 - Формат імені файлу:
   - `YYYY.MM.DD HH.MM.SS_message_id[optional_index].ext`
-- Реакція `👀` ставиться лише після успішної публікації в RabbitMQ.
-- Якщо завантаження файлу або публікація не вдалися, реакція не ставиться.
+- Реакція `👀` ставиться лише на message-подіях після успішної публікації в RabbitMQ.
+- Для callback_query після успішної публікації викликається `answerCallbackQuery`, щоб клієнт знав про обробку натиску.
+- Якщо завантаження файлу або публікація не вдалися, реакція не ставиться, callback не підтверджується.
 - Текстові повідомлення без файлів також публікуються.
 
 ## Формат JSON
+
+### Для message-подій
 
 ```json
 {
@@ -33,6 +38,8 @@
     "message_id": "111222333",
     "timestamp": "2026-03-27T08:40:00Z"
   },
+  "command_name": "",
+  "command_params": {},
   "content": {
     "text": "optional text",
     "language": "uk",
@@ -43,6 +50,41 @@
         "mime_type": "image/jpeg"
       }
     ]
+  }
+}
+```
+
+### Для callback_query
+
+```json
+{
+  "source": {
+    "system": "telegram",
+    "source_id": "my_telegram_bot",
+    "chat_id": "123456789",
+    "user_id": "987654321",
+    "username": "volodymyr",
+    "message_id": "111222333",
+    "timestamp": "2026-03-27T08:40:00Z"
+  },
+  "command_name": "",
+  "command_params": {},
+  "content": {
+    "text": "optional text",
+    "language": "uk",
+    "files": [
+      {
+        "file_id": "abc123xyz",
+        "file_url": "<local disk path>",
+        "mime_type": "image/jpeg"
+      }
+    ],
+    "callback": {
+      "id": "callback_query_id_xyz",
+      "data": "button_action_123",
+      "chat_instance": "123456789",
+      "inline_message_id": null
+    }
   }
 }
 ```

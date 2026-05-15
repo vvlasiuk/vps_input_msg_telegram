@@ -57,60 +57,71 @@ class TelegramToRabbitService:
         self._publisher.close()
 
     def _handle_update(self, update: dict[str, Any]) -> bool:
-        message_meta = self._telegram.extract_message_data(update)
-        if not message_meta:
+        event_data = self._telegram.extract_update_data(update)
+        if not event_data:
             return True
 
-        files = []
-        try:
-            files = self._telegram.download_attachments(message_meta)
-        except Exception:
-            logger.exception("Failed to download Telegram attachment")
-            files = []
+        event_type = event_data.get("event_type", "")
 
-        payload = self._build_payload(message_meta, files)
+        # Завантажуємо вкладення лише для message-подій
+        files = []
+        if event_type == "message":
+            try:
+                files = self._telegram.download_attachments(event_data)
+            except Exception:
+                logger.exception("Failed to download Telegram attachment")
+                files = []
+
+        payload = self._build_payload(event_data, files)
 
         try:
             self._publisher.publish(payload)
+            logger.info(f"Published {event_type} to RabbitMQ", extra={"event_type": event_type})
         except Exception:
-            logger.exception("Failed to publish message to RabbitMQ")
+            logger.exception(f"Failed to publish {event_type} to RabbitMQ")
             return False
 
-        try:
-            reacted = self._telegram.set_message_reaction_eyes(
-                chat_id=message_meta["chat_id"],
-                message_id=message_meta["message_id_int"],
-            )
-            if not reacted:
-                logger.error("Telegram returned not-ok for setMessageReaction")
-        except Exception:
-            logger.exception("Failed to set reaction")
+        # Обробка post-publish дій в залежності від типу события
+        if event_type == "callback_query":
+            # Для callback_query підтверджуємо callback
+            callback_id = event_data.get("callback_query_id", "")
+            if callback_id:
+                answered = self._telegram.answer_callback_query(callback_id)
+                if not answered:
+                    logger.error(f"Failed to answer callback query {callback_id}")
+        elif event_type == "message":
+            # Для message ставимо реакцію 👀
+            try:
+                reacted = self._telegram.set_message_reaction_eyes(
+                    chat_id=event_data["chat_id"],
+                    message_id=event_data["message_id_int"],
+                )
+                if not reacted:
+                    logger.error("Telegram returned not-ok for setMessageReaction")
+            except Exception:
+                logger.exception("Failed to set reaction")
 
         return True
 
-    def _build_payload(self, message_meta: dict[str, Any], files: list[Any]) -> dict[str, Any]:
-        web_app_data = message_meta.get("web_app_data")
-        command = None
-        if web_app_data:
-            if isinstance(web_app_data, dict):
-                command = web_app_data
+    def _build_payload(self, event_data: dict[str, Any], files: list[Any]) -> dict[str, Any]:
+        event_type = event_data.get("event_type", "message")
+        command_name = event_data.get("command_name", "")
+        command_params = event_data.get("command_params", {})
 
-        return {
+        payload: dict[str, Any] = {
             "source": {
                 "system": "telegram",
                 "source_id": self._settings.telegram_source_id,
-                "chat_id": message_meta["chat_id"],
-                "user_id": message_meta["user_id"],
-                "username": message_meta["username"],
-                "message_id": message_meta["message_id"],
-                "timestamp": message_meta["timestamp_iso"],
+                "chat_id": event_data["chat_id"],
+                "user_id": event_data["user_id"],
+                "username": event_data["username"],
+                "message_id": event_data["message_id"],
+                "timestamp": event_data["timestamp_iso"],
             },
-            
-            "command_name": message_meta.get("command_name", ""),
-            "command_params": message_meta.get("command_params", {}),
-            
+            "command_name": command_name,
+            "command_params": command_params,
             "content": {
-                "text": message_meta["text"],
+                "text": event_data["text"],
                 "language": self._settings.default_language,
                 "files": [
                     {
@@ -122,6 +133,17 @@ class TelegramToRabbitService:
                 ],
             },
         }
+
+        # Додаємо callback-метадані для callback_query
+        if event_type == "callback_query":
+            payload["content"]["callback"] = {
+                "id": event_data.get("callback_query_id", ""),
+                "data": event_data.get("callback_data", ""),
+                "chat_instance": event_data.get("callback_chat_instance", ""),
+                "inline_message_id": event_data.get("callback_inline_message_id"),
+            }
+
+        return payload
 
     def _read_offset(self) -> int | None:
         if not self._offset_file.exists():

@@ -59,7 +59,7 @@ class TelegramGateway:
     def get_updates(self, offset: int | None) -> list[dict[str, Any]]:
         payload: dict[str, Any] = {
             "timeout": self._settings.telegram_poll_timeout_seconds,
-            "allowed_updates": ["message", "web_app_data"],
+            "allowed_updates": ["message", "web_app_data", "callback_query"],
         }
         if offset is not None:
             payload["offset"] = offset
@@ -84,7 +84,100 @@ class TelegramGateway:
         data = response.json()
         return bool(data.get("ok"))
 
+    def extract_update_data(self, update: dict[str, Any]) -> dict[str, Any] | None:
+        """
+        Екстрагує дані з update.message або update.callback_query.
+        Повертає уніфіковану структуру з тип події та метаданими.
+        """
+        # Спробуємо message
+        message = update.get("message")
+        if message:
+            return self._extract_from_message(message, update.get("update_id", 0))
+
+        # Спробуємо callback_query
+        callback_query = update.get("callback_query")
+        if callback_query:
+            return self._extract_from_callback_query(callback_query, update.get("update_id", 0))
+
+        return None
+
+    def _extract_from_message(self, message: dict[str, Any], update_id: int) -> dict[str, Any] | None:
+        """Екстрагує дані з message-подій."""
+        chat = message.get("chat", {})
+        chat_id = str(chat.get("id", ""))
+        if not chat_id:
+            return None
+
+        if self._settings.telegram_allowed_chat_id and chat_id != self._settings.telegram_allowed_chat_id:
+            return None
+
+        sender = message.get("from", {})
+        timestamp = datetime.fromtimestamp(message.get("date", int(time.time())), tz=self._message_timezone)
+        command_name, command_params = self._extract_command_from_web_app_data(
+            message.get("web_app_data"),
+        )
+        return {
+            "event_type": "message",
+            "update_id": update_id,
+            "chat_id": chat_id,
+            "user_id": str(sender.get("id", "")),
+            "username": sender.get("username") or "",
+            "message_id": str(message.get("message_id", "")),
+            "message_id_int": int(message.get("message_id", 0)),
+            "timestamp_iso": timestamp.isoformat(),
+            "timestamp_file": timestamp.strftime("%Y-%m-%d_%H-%M-%S"),
+            "text": message.get("text") or message.get("caption") or "",
+            "command_name": command_name,
+            "command_params": command_params,
+            "raw_message": message,
+            "callback_query_id": None,
+            "callback_data": None,
+        }
+
+    def _extract_from_callback_query(self, callback_query: dict[str, Any], update_id: int) -> dict[str, Any] | None:
+        """Екстрагує дані з callback_query-подій."""
+        callback_query_id = callback_query.get("id", "")
+        if not callback_query_id:
+            return None
+
+        message = callback_query.get("message")
+        if not message:
+            return None
+
+        chat = message.get("chat", {})
+        chat_id = str(chat.get("id", ""))
+        if not chat_id:
+            return None
+
+        if self._settings.telegram_allowed_chat_id and chat_id != self._settings.telegram_allowed_chat_id:
+            return None
+
+        from_user = callback_query.get("from", {})
+        message_timestamp = datetime.fromtimestamp(message.get("date", int(time.time())), tz=self._message_timezone)
+
+        return {
+            "event_type": "callback_query",
+            "update_id": update_id,
+            "chat_id": chat_id,
+            "user_id": str(from_user.get("id", "")),
+            "username": from_user.get("username") or "",
+            "message_id": str(message.get("message_id", "")),
+            "message_id_int": int(message.get("message_id", 0)),
+            "timestamp_iso": message_timestamp.isoformat(),
+            "timestamp_file": message_timestamp.strftime("%Y-%m-%d_%H-%M-%S"),
+            "text": "",
+            "command_name": callback_query.get("data", ""),
+            "command_params": {},
+            "raw_message": message,
+            # "callback_query_id": callback_query_id,
+            # "callback_data": callback_query.get("data", ""),
+            # "callback_chat_instance": callback_query.get("chat_instance", ""),
+            # "callback_inline_message_id": callback_query.get("inline_message_id"),
+        }
+
+    # Зберегти старий extract_message_data для сумісності (опціонально)
     def extract_message_data(self, update: dict[str, Any]) -> dict[str, Any] | None:
+        """Застарілий метод. Використовуйте extract_update_data."""
         message = update.get("message")
         if not message:
             return None
@@ -272,3 +365,24 @@ class TelegramGateway:
                 command_params = {"value": params_value}
 
         return command_name, command_params
+
+    def answer_callback_query(self, callback_query_id: str, text: str | None = None, show_alert: bool = False) -> bool:
+        """
+        Відповідає на callback_query, щоб клієнт знав що запит оброблено.
+        """
+        payload: dict[str, Any] = {
+            "callback_query_id": callback_query_id,
+        }
+        if text:
+            payload["text"] = text
+        if show_alert:
+            payload["show_alert"] = True
+
+        try:
+            response = requests.post(f"{self._api_base}/answerCallbackQuery", json=payload, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            return bool(data.get("ok"))
+        except Exception as exc:
+            logger.exception(f"Failed to answer callback query {callback_query_id}: {exc}")
+            return False
